@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { authService } from '@/services/authService';
+import { apiClient } from '@/services/api';
 import { 
   ServiceType, 
   AuthMethod, 
@@ -61,10 +61,10 @@ export function useAuth(): AuthHookReturn {
   // Check authentication status on mount
   useEffect(() => {
     const checkAuthStatus = async () => {
-      if (authService.isAuthenticated()) {
+      if (apiClient.isAuthenticated()) {
         try {
           setAuthState(prev => ({ ...prev, loading: true }));
-          const sessionInfo = await authService.getSessionInfo();
+          const sessionInfo = await apiClient.getSessionInfo();
           setAuthState({
             isAuthenticated: true,
             sessionInfo,
@@ -80,7 +80,7 @@ export function useAuth(): AuthHookReturn {
             error: 'Session expired or invalid',
           });
           // Clear invalid session
-          localStorage.removeItem('sessionId');
+          apiClient.clearSession();
         }
       } else {
         setAuthState(prev => ({ ...prev, loading: false }));
@@ -114,19 +114,19 @@ export function useAuth(): AuthHookReturn {
 
       if (method === 'oauth') {
         // Initiate OAuth flow - this will redirect the user
-        await authService.initiateOAuth(service);
+        await apiClient.initiateOAuth(service);
         return true; // OAuth will handle the redirect
       } else if (method === 'api-token' && credentials) {
         // Authenticate with API token
         if (service === 'jira') {
-          authResponse = await authService.authenticateJiraAPIToken(credentials);
+          authResponse = await apiClient.authenticateJiraAPIToken(credentials);
         } else {
-          authResponse = await authService.authenticateConfluenceAPIToken(credentials);
+          authResponse = await apiClient.authenticateConfluenceAPIToken(credentials);
         }
 
         if (authResponse.success) {
           // Get session info after successful authentication
-          const sessionInfo = await authService.getSessionInfo();
+          const sessionInfo = await apiClient.getSessionInfo();
           setAuthState({
             isAuthenticated: true,
             sessionInfo,
@@ -175,7 +175,7 @@ export function useAuth(): AuthHookReturn {
   const logout = useCallback(async (): Promise<void> => {
     try {
       setAuthState(prev => ({ ...prev, loading: true }));
-      await authService.logout();
+      await apiClient.logout();
       
       setAuthState({
         isAuthenticated: false,
@@ -210,11 +210,11 @@ export function useAuth(): AuthHookReturn {
    * Refresh current session information
    */
   const refreshSession = useCallback(async (): Promise<void> => {
-    if (!authService.isAuthenticated()) return;
+    if (!apiClient.isAuthenticated()) return;
 
     try {
       setAuthState(prev => ({ ...prev, loading: true }));
-      const sessionInfo = await authService.getSessionInfo();
+      const sessionInfo = await apiClient.getSessionInfo();
       setAuthState(prev => ({
         ...prev,
         sessionInfo,
@@ -257,7 +257,7 @@ export function useAuth(): AuthHookReturn {
       }));
 
       if (service === 'jira') {
-        const response = await authService.getJiraProjects();
+        const response = await apiClient.getJiraProjects();
         setServiceStates(prev => ({
           ...prev,
           jira: { 
@@ -270,7 +270,7 @@ export function useAuth(): AuthHookReturn {
         }));
         return response.projects;
       } else {
-        const response = await authService.getConfluenceSpaces();
+        const response = await apiClient.getConfluenceSpaces();
         setServiceStates(prev => ({
           ...prev,
           confluence: { 

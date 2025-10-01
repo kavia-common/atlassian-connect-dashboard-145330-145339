@@ -54,6 +54,19 @@ export interface ConfluenceSpacesResponse {
   total_count: number;
 }
 
+export interface ResourceInfo {
+  id: string;
+  url: string;
+  name: string;
+  scopes: string[];
+  avatarUrl: string;
+}
+
+export interface AccessibleResourcesResponse {
+  success: boolean;
+  resources: ResourceInfo[];
+}
+
 export interface OAuthStartResponse {
   authorization_url: string;
   state: string;

@@ -8,10 +8,12 @@ interface ConfluenceSpacesProps {
   loading: boolean;
   error?: string | null;
   cloudId?: string | null;
+  onRetry?: () => void;
+  onClearError?: () => void;
 }
 
 // PUBLIC_INTERFACE
-export default function ConfluenceSpaces({ spaces, loading, error, cloudId }: ConfluenceSpacesProps) {
+export default function ConfluenceSpaces({ spaces, loading, error, cloudId, onRetry, onClearError }: ConfluenceSpacesProps) {
   /**
    * Component for displaying Confluence spaces with comprehensive state handling.
    * Shows space cards with key information, status indicators, and external links.
@@ -68,7 +70,14 @@ export default function ConfluenceSpaces({ spaces, loading, error, cloudId }: Co
           </p>
           <div className="mt-6 text-center">
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                onClearError?.();
+                if (onRetry) {
+                  onRetry();
+                } else {
+                  window.location.reload();
+                }
+              }}
               className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

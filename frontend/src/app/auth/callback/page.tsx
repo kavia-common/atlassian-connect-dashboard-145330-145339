@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { authService } from '@/services/authService';
+import { apiClient } from '@/services/api';
 import { getApiBaseUrl } from '@/utils';
 
 // PUBLIC_INTERFACE
@@ -19,7 +19,7 @@ export default function OAuthCallback() {
     const handleOAuthCallback = async () => {
       try {
         // Extract OAuth parameters from URL
-        const { code, state, error } = authService.handleOAuthCallback();
+        const { code, state, error } = apiClient.handleOAuthCallback();
         
         // Check for OAuth errors
         if (error) {

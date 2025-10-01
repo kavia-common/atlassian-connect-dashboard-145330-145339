@@ -5,7 +5,8 @@ import Sidebar from '@/components/Sidebar';
 import DashboardHeader from '@/components/DashboardHeader';
 import { AuthPanel } from '@/components/auth';
 import { DataDisplay } from '@/components/data';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
+import { useData } from '@/contexts/DataContext';
 import { ServiceType, AuthMethod, APITokenRequest } from '@/types';
 
 // PUBLIC_INTERFACE
@@ -13,7 +14,7 @@ export default function Home() {
   /**
    * Main dashboard page component that orchestrates the entire application layout.
    * Manages sidebar navigation, connection states, and content switching between Jira and Confluence.
-   * Now uses the new authentication system with proper hooks and components and the new DataDisplay components.
+   * Uses the new context-based authentication and data management system.
    */
 
   const [activeSection, setActiveSection] = useState<ServiceType>('jira');
@@ -28,14 +29,32 @@ export default function Home() {
     clearError 
   } = useAuth();
 
+  const { 
+    fetchJiraProjects, 
+    fetchConfluenceSpaces,
+    clearAllErrors: clearDataErrors
+  } = useData();
+
   const handleConnect = async (method: AuthMethod, credentials?: APITokenRequest) => {
     try {
       clearError();
+      clearDataErrors();
+      
       const success = await login(activeSection, method, credentials);
       
       if (success && method === 'oauth') {
         // OAuth will redirect, so we don't need to do anything else here
         return;
+      }
+      
+      if (success && method === 'api-token') {
+        // Fetch initial data after successful API token authentication
+        const cloudId = sessionInfo?.domain || undefined;
+        if (activeSection === 'jira') {
+          await fetchJiraProjects(cloudId, true);
+        } else {
+          await fetchConfluenceSpaces(cloudId, true);
+        }
       }
       
       if (!success) {
@@ -121,7 +140,7 @@ export default function Home() {
           <DataDisplay
             activeService={activeSection}
             serviceStates={serviceStates}
-            cloudId={sessionInfo?.domain}
+            cloudId={sessionInfo?.domain || undefined}
           />
         )}
       </main>

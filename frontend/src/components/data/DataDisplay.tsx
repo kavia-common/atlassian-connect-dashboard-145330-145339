@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
-import { ServiceType, JiraProject, ConfluenceSpace } from '@/types';
+import React, { useEffect } from 'react';
+import { ServiceType } from '@/types';
+import { useData } from '@/contexts/DataContext';
 import JiraProjects from './JiraProjects';
 import ConfluenceSpaces from './ConfluenceSpaces';
 
@@ -9,8 +10,6 @@ interface ServiceConnectionState {
   connected: boolean;
   loading: boolean;
   error: string | null;
-  projects?: JiraProject[];
-  spaces?: ConfluenceSpace[];
 }
 
 interface DataDisplayProps {
@@ -26,14 +25,44 @@ interface DataDisplayProps {
 export default function DataDisplay({ activeService, serviceStates, cloudId }: DataDisplayProps) {
   /**
    * Dynamic data display component that switches between Jira projects and Confluence spaces
-   * based on the active service selection. Handles state management and passes appropriate
-   * data to the respective display components.
+   * based on the active service selection. Uses the data context for state management and
+   * automatically fetches data when service is connected.
    */
 
-  const currentState = serviceStates[activeService];
+  const {
+    jira,
+    confluence,
+    fetchJiraProjects,
+    fetchConfluenceSpaces,
+    clearJiraError,
+    clearConfluenceError,
+  } = useData();
+
+  const currentServiceState = serviceStates[activeService];
+
+  // Auto-fetch data when service becomes connected
+  useEffect(() => {
+    if (currentServiceState.connected) {
+      if (activeService === 'jira' && (!jira.projects.length || jira.error)) {
+        fetchJiraProjects(cloudId || undefined, false);
+      } else if (activeService === 'confluence' && (!confluence.spaces.length || confluence.error)) {
+        fetchConfluenceSpaces(cloudId || undefined, false);
+      }
+    }
+  }, [
+    activeService,
+    currentServiceState.connected,
+    cloudId,
+    jira.projects.length,
+    jira.error,
+    confluence.spaces.length,
+    confluence.error,
+    fetchJiraProjects,
+    fetchConfluenceSpaces,
+  ]);
 
   // Check if the user is connected to the current service
-  if (!currentState.connected) {
+  if (!currentServiceState.connected) {
     return (
       <div className="data-container">
         <div className="empty-state">
@@ -58,20 +87,24 @@ export default function DataDisplay({ activeService, serviceStates, cloudId }: D
     case 'jira':
       return (
         <JiraProjects
-          projects={currentState.projects || []}
-          loading={currentState.loading}
-          error={currentState.error}
-          cloudId={cloudId}
+          projects={jira.projects}
+          loading={jira.loading}
+          error={jira.error}
+          cloudId={jira.cloudId || cloudId}
+          onRetry={() => fetchJiraProjects(cloudId || undefined, true)}
+          onClearError={clearJiraError}
         />
       );
     
     case 'confluence':
       return (
         <ConfluenceSpaces
-          spaces={currentState.spaces || []}
-          loading={currentState.loading}
-          error={currentState.error}
-          cloudId={cloudId}
+          spaces={confluence.spaces}
+          loading={confluence.loading}
+          error={confluence.error}
+          cloudId={confluence.cloudId || cloudId}
+          onRetry={() => fetchConfluenceSpaces(cloudId || undefined, true)}
+          onClearError={clearConfluenceError}
         />
       );
     
@@ -88,7 +121,7 @@ export default function DataDisplay({ activeService, serviceStates, cloudId }: D
               Unknown Service
             </h3>
             <p className="text-gray-600 text-center max-w-md mx-auto">
-              The selected service &quot;{activeService}&quot; is not supported.
+              The selected service &ldquo;{activeService}&rdquo; is not supported.
             </p>
           </div>
         </div>

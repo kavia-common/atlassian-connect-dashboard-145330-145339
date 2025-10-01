@@ -9,10 +9,12 @@ interface JiraProjectsProps {
   loading: boolean;
   error?: string | null;
   cloudId?: string | null;
+  onRetry?: () => void;
+  onClearError?: () => void;
 }
 
 // PUBLIC_INTERFACE
-export default function JiraProjects({ projects, loading, error, cloudId }: JiraProjectsProps) {
+export default function JiraProjects({ projects, loading, error, cloudId, onRetry, onClearError }: JiraProjectsProps) {
   /**
    * Component for displaying Jira projects with comprehensive state handling.
    * Shows project cards with key information, avatars, and external links.
@@ -69,7 +71,10 @@ export default function JiraProjects({ projects, loading, error, cloudId }: Jira
           </p>
           <div className="mt-6 text-center">
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                onClearError?.();
+                onRetry ? onRetry() : window.location.reload();
+              }}
               className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -151,7 +156,8 @@ export default function JiraProjects({ projects, loading, error, cloudId }: Jira
                     height={40}
                     className="w-10 h-10 rounded-lg mr-3 flex-shrink-0"
                     onError={(e) => {
-                      e.currentTarget.style.display = 'none';
+                      const target = e.currentTarget as HTMLImageElement;
+                      target.style.display = 'none';
                     }}
                   />
                 )}
@@ -197,11 +203,15 @@ export default function JiraProjects({ projects, loading, error, cloudId }: Jira
                   <>
                     <span className="mx-2">•</span>
                     <span>
-                      {(project.projectCategory && typeof project.projectCategory === 'object' && 
-                        'name' in project.projectCategory && 
-                        typeof project.projectCategory.name === 'string') 
-                        ? project.projectCategory.name 
-                        : 'Uncategorized'}
+                      {(() => {
+                        if (project.projectCategory && 
+                            typeof project.projectCategory === 'object' && 
+                            'name' in project.projectCategory && 
+                            typeof project.projectCategory.name === 'string') {
+                          return project.projectCategory.name;
+                        }
+                        return 'Uncategorized';
+                      })()}
                     </span>
                   </>
                 )}
