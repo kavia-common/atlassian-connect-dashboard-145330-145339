@@ -4,16 +4,16 @@ import React, { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import DashboardHeader from '@/components/DashboardHeader';
 import { AuthPanel } from '@/components/auth';
-import ProjectsList from '@/components/ProjectsList';
+import { DataDisplay } from '@/components/data';
 import { useAuth } from '@/hooks/useAuth';
-import { ServiceType, AuthMethod, APITokenRequest, ProjectItem } from '@/types';
+import { ServiceType, AuthMethod, APITokenRequest } from '@/types';
 
 // PUBLIC_INTERFACE
 export default function Home() {
   /**
    * Main dashboard page component that orchestrates the entire application layout.
    * Manages sidebar navigation, connection states, and content switching between Jira and Confluence.
-   * Now uses the new authentication system with proper hooks and components.
+   * Now uses the new authentication system with proper hooks and components and the new DataDisplay components.
    */
 
   const [activeSection, setActiveSection] = useState<ServiceType>('jira');
@@ -55,24 +55,6 @@ export default function Home() {
   };
 
   const currentServiceState = serviceStates[activeSection];
-  
-  // Convert the data to ProjectItem interface for the component
-  const currentData: ProjectItem[] = activeSection === 'jira' 
-    ? (currentServiceState.projects || []).map(project => ({
-        id: project.id,
-        key: project.key,
-        name: project.name,
-        projectTypeKey: project.projectTypeKey,
-        description: project.description,
-        url: project.url
-      }))
-    : (currentServiceState.spaces || []).map(space => ({
-        id: space.id,
-        key: space.key,
-        name: space.name,
-        type: space.type,
-        description: typeof space.description === 'string' ? space.description : null
-      }));
 
   const getSectionTitle = () => {
     const serviceName = activeSection.charAt(0).toUpperCase() + activeSection.slice(1);
@@ -136,10 +118,10 @@ export default function Home() {
             error={currentServiceState.error}
           />
         ) : (
-          <ProjectsList
-            service={activeSection}
-            projects={currentData}
-            loading={currentServiceState.loading}
+          <DataDisplay
+            activeService={activeSection}
+            serviceStates={serviceStates}
+            cloudId={sessionInfo?.domain}
           />
         )}
       </main>
