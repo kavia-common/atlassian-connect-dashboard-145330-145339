@@ -3,78 +3,62 @@
 import React, { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import DashboardHeader from '@/components/DashboardHeader';
-import ConnectionPanel from '@/components/ConnectionPanel';
+import { AuthPanel } from '@/components/auth';
 import ProjectsList from '@/components/ProjectsList';
-import { ServiceType, AuthMethod, APITokenRequest, ConnectionData, JiraProject, ConfluenceSpace, ProjectItem } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
+import { ServiceType, AuthMethod, APITokenRequest, ProjectItem } from '@/types';
 
 // PUBLIC_INTERFACE
 export default function Home() {
   /**
    * Main dashboard page component that orchestrates the entire application layout.
    * Manages sidebar navigation, connection states, and content switching between Jira and Confluence.
+   * Now uses the new authentication system with proper hooks and components.
    */
 
   const [activeSection, setActiveSection] = useState<ServiceType>('jira');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [connections, setConnections] = useState<ConnectionData>({
-    jira: { connected: false, projects: [], loading: false },
-    confluence: { connected: false, spaces: [], loading: false },
-  });
+  
+  const { 
+    login, 
+    logout, 
+    serviceStates, 
+    isAuthenticated, 
+    sessionInfo, 
+    clearError 
+  } = useAuth();
 
-  const handleConnect = async (service: ServiceType, method: AuthMethod, data?: APITokenRequest) => {
-    setConnections(prev => ({
-      ...prev,
-      [service]: { ...prev[service], loading: true }
-    }));
-
+  const handleConnect = async (method: AuthMethod, credentials?: APITokenRequest) => {
     try {
-      // TODO: Implement actual API calls to backend
-      console.log(`Connecting to ${service} via ${method}`, data);
+      clearError();
+      const success = await login(activeSection, method, credentials);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (success && method === 'oauth') {
+        // OAuth will redirect, so we don't need to do anything else here
+        return;
+      }
       
-      // Mock successful connection with sample data
-      const mockJiraProjects: JiraProject[] = [
-        { id: '1', key: 'PROJ', name: 'Sample Project', projectTypeKey: 'software', description: 'A sample Jira project' },
-        { id: '2', key: 'TEST', name: 'Test Project', projectTypeKey: 'business', description: 'Test project for demonstration' }
-      ];
-
-      const mockConfluenceSpaces: ConfluenceSpace[] = [
-        { id: '1', key: 'SPACE', name: 'Sample Space', type: 'global', description: null },
-        { id: '2', key: 'DOCS', name: 'Documentation', type: 'global', description: null }
-      ];
-
-      const mockData = service === 'jira' 
-        ? {
-            connected: true,
-            projects: mockJiraProjects,
-            loading: false
-          }
-        : {
-            connected: true,
-            spaces: mockConfluenceSpaces,
-            loading: false
-          };
-
-      setConnections(prev => ({
-        ...prev,
-        [service]: mockData
-      }));
+      if (!success) {
+        console.error(`Failed to connect to ${activeSection}`);
+      }
     } catch (error) {
-      console.error(`Failed to connect to ${service}:`, error);
-      setConnections(prev => ({
-        ...prev,
-        [service]: { ...prev[service], loading: false }
-      }));
+      console.error(`Authentication error for ${activeSection}:`, error);
     }
   };
 
-  const currentConnection = connections[activeSection];
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  const currentServiceState = serviceStates[activeSection];
   
   // Convert the data to ProjectItem interface for the component
   const currentData: ProjectItem[] = activeSection === 'jira' 
-    ? (currentConnection.projects || []).map(project => ({
+    ? (currentServiceState.projects || []).map(project => ({
         id: project.id,
         key: project.key,
         name: project.name,
@@ -82,7 +66,7 @@ export default function Home() {
         description: project.description,
         url: project.url
       }))
-    : (currentConnection.spaces || []).map(space => ({
+    : (currentServiceState.spaces || []).map(space => ({
         id: space.id,
         key: space.key,
         name: space.name,
@@ -92,11 +76,11 @@ export default function Home() {
 
   const getSectionTitle = () => {
     const serviceName = activeSection.charAt(0).toUpperCase() + activeSection.slice(1);
-    return currentConnection.connected ? `${serviceName} Dashboard` : `Connect to ${serviceName}`;
+    return currentServiceState.connected ? `${serviceName} Dashboard` : `Connect to ${serviceName}`;
   };
 
   const getSectionSubtitle = () => {
-    if (currentConnection.connected) {
+    if (currentServiceState.connected) {
       const itemType = activeSection === 'jira' ? 'projects' : 'spaces';
       return `Manage your ${activeSection} ${itemType} and resources`;
     }
@@ -119,18 +103,43 @@ export default function Home() {
           onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
         />
         
-        {!currentConnection.connected ? (
-          <ConnectionPanel
+        {/* User Session Info */}
+        {isAuthenticated && sessionInfo && (
+          <div className="session-info bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
+                <div>
+                  <p className="text-sm font-medium text-green-900">
+                    Authenticated as {sessionInfo.email}
+                  </p>
+                  <p className="text-xs text-green-700">
+                    Provider: {sessionInfo.provider} • Method: {sessionInfo.auth_method}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="text-sm text-green-700 hover:text-green-900 underline"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {!currentServiceState.connected ? (
+          <AuthPanel
             service={activeSection}
-            isConnected={currentConnection.connected}
-            onConnect={(method, data) => handleConnect(activeSection, method, data)}
-            loading={currentConnection.loading}
+            onAuthenticate={handleConnect}
+            loading={currentServiceState.loading}
+            error={currentServiceState.error}
           />
         ) : (
           <ProjectsList
             service={activeSection}
             projects={currentData}
-            loading={currentConnection.loading}
+            loading={currentServiceState.loading}
           />
         )}
       </main>
